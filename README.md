@@ -17,7 +17,7 @@ This project uses **Geopy** and **Pandas** to:
 ## 🚀 How It Works
 
 1. **Input CSV**:  
-   The input file (`f2.csv`) should contain `lat1` and `lon1` columns with latitude and longitude values.
+   The input file (`dateset.csv`) should contain `lat1` and `lon1` columns with latitude and longitude values.
 
 2. **Data Cleaning**:
    - Convert latitude and longitude columns to numeric.
@@ -26,10 +26,10 @@ This project uses **Geopy** and **Pandas** to:
      - Latitude: `-90` to `90`
      - Longitude: `-180` to `180`
 
-3. **Reverse Geocoding**:
-   - For each unique pair of latitude and longitude:
-     - Use the `Nominatim` geocoder to fetch location details.
-     - Retry geocoding in case of timeouts, with exponential backoff.
+3. **Reverse Geocoding**: 
+   - Extract unique latitude and longitude pairs to minimize API calls.  
+   - Use the `get_location_details` function to fetch country, state, and city for each unique coordinate.  
+   - Implement retry logic with exponential backoff to handle timeouts.
 
 4. **Output CSV**:  
    The enriched dataset (`updated_dataset.csv`) includes three new columns:
@@ -41,31 +41,10 @@ This project uses **Geopy** and **Pandas** to:
 
 ## 📂 File Structure
 
-- **Input File**: `f2.csv`  
+- **Input File**: `dateset.csv`  
   Should include latitude (`lat1`) and longitude (`lon1`) columns.
 - **Output File**: `updated_dataset.csv`  
   Includes all original columns plus `Country`, `State`, and `City`.
 
 ---
 
-## 🧑‍💻 Key Code Sections
-
-### 1. **Geocoding Function**
-
-The function `get_location_details(lat, lon)` uses the Geopy library to reverse geocode coordinates:
-
-```python
-def get_location_details(lat, lon, retries=3, delay=1):
-    for attempt in range(retries):
-        try:
-            location = geolocator.reverse((lat, lon), exactly_one=True, language="en", timeout=10)
-            if location and 'address' in location.raw:
-                address = location.raw['address']
-                return address.get('country', 'Unknown'), address.get('state', 'Unknown'), address.get('city', 'Unknown')
-            return 'Unknown', 'Unknown', 'Unknown'
-        except GeocoderTimedOut:
-            time.sleep(delay)
-            delay *= 2
-        except Exception as e:
-            return 'Unknown', 'Unknown', 'Unknown'
-    return 'Unknown', 'Unknown', 'Unknown'
