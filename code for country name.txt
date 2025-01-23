@@ -1,0 +1,39 @@
+import pandas as pd
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut
+import time
+
+geolocator = Nominatim(user_agent="geoapiExercises")
+
+def get_location_details(lat, lon, retries=3, delay=1):
+    for attempt in range(retries):
+        try:
+            location = geolocator.reverse((lat, lon), exactly_one=True, language="en", timeout=10)
+            if location and 'address' in location.raw:
+                address = location.raw['address']
+                return address.get('country', 'Unknown'), address.get('state', 'Unknown'), address.get('city', 'Unknown')
+            return 'Unknown', 'Unknown', 'Unknown'
+        except GeocoderTimedOut:
+            time.sleep(delay)
+            delay *= 2
+        except Exception as e:
+            return 'Unknown', 'Unknown', 'Unknown'
+    return 'Unknown', 'Unknown', 'Unknown'
+
+data = pd.read_csv('f2.csv', dtype={'lat1': 'float64', 'lon1': 'float64'}, low_memory=False)
+data['lat1'] = pd.to_numeric(data['lat1'], errors='coerce')
+data['lon1'] = pd.to_numeric(data['lon1'], errors='coerce')
+data = data.dropna(subset=['lat1', 'lon1'])
+data = data[(data['lat1'].between(-90, 90)) & (data['lon1'].between(-180, 180))]
+
+unique_coords = data[['lat1', 'lon1']].drop_duplicates()
+unique_coords['Details'] = unique_coords.apply(
+    lambda row: get_location_details(row['lat1'], row['lon1']), axis=1
+)
+
+coord_to_details = unique_coords.set_index(['lat1', 'lon1'])['Details'].to_dict()
+data['Details'] = data.apply(lambda row: coord_to_details.get((row['lat1'], row['lon1']), ('Unknown', 'Unknown', 'Unknown')), axis=1)
+data[['Country', 'State', 'City']] = pd.DataFrame(data['Details'].tolist(), index=data.index)
+data.drop(columns=['Details'], inplace=True)
+
+data.to_csv('updated_dataset.csv', index=False)
